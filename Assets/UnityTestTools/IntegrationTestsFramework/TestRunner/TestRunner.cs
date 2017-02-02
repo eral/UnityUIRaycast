@@ -7,12 +7,15 @@ using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using UnityTest.IntegrationTestRunner;
+using System.IO;
+using UnityEngine.SceneManagement;
 
 namespace UnityTest
 {
     [Serializable]
     public class TestRunner : MonoBehaviour
     {
+        static private int TestSceneNumber = 0;
         static private readonly TestResultRenderer k_ResultRenderer = new TestResultRenderer();
 
         public TestComponent currentTest;
@@ -72,7 +75,7 @@ namespace UnityTest
             }
 
             TestComponent.DestroyAllDynamicTests();
-            var dynamicTestTypes = TestComponent.GetTypesWithHelpAttribute(Application.loadedLevelName);
+            var dynamicTestTypes = TestComponent.GetTypesWithHelpAttribute(SceneManager.GetActiveScene().name);
             foreach (var dynamicTestType in dynamicTestTypes)
                 TestComponent.CreateDynamicTest(dynamicTestType);
 
@@ -222,15 +225,15 @@ namespace UnityTest
                 {
                     if (m_TestState == TestState.Running)
                     {
-						if(currentTest.ShouldSucceedOnAssertions())
-						{
-							var assertionsToCheck = currentTest.gameObject.GetComponentsInChildren<AssertionComponent>().Where(a => a.enabled).ToArray();
-							if (assertionsToCheck.Any () && assertionsToCheck.All(a => a.checksPerformed > 0))
-	                        {
-	                            IntegrationTest.Pass(currentTest.gameObject);
-	                            m_TestState = TestState.Success;
-	                        }
-						}
+                        if(currentTest.ShouldSucceedOnAssertions())
+                        {
+                            var assertionsToCheck = currentTest.gameObject.GetComponentsInChildren<AssertionComponent>().Where(a => a.enabled).ToArray();
+                            if (assertionsToCheck.Any () && assertionsToCheck.All(a => a.checksPerformed > 0))
+                            {
+                                IntegrationTest.Pass(currentTest.gameObject);
+                                m_TestState = TestState.Success;
+                            }
+                        }
                         if (currentTest != null && Time.time > m_StartTime + currentTest.GetTimeout())
                         {
                             m_TestState = TestState.Timeout;
@@ -302,11 +305,25 @@ namespace UnityTest
         {
             if (isInitializedByRunner) return;
 
-            if (Application.loadedLevel < Application.levelCount - 1)
-                Application.LoadLevel(Application.loadedLevel + 1);
+
+            TestSceneNumber += 1;
+            string testScene = m_Configurator.GetIntegrationTestScenes(TestSceneNumber);
+
+            if (testScene != null)
+                SceneManager.LoadScene(Path.GetFileNameWithoutExtension(testScene));
             else
             {
+                TestRunnerCallback.AllScenesFinished();
                 k_ResultRenderer.ShowResults();
+
+#if UNITY_EDITOR
+                var prevScenes = m_Configurator.GetPreviousScenesToRestore();
+                if(prevScenes!=null)
+                {
+                    UnityEditor.EditorBuildSettings.scenes = prevScenes;
+                }
+#endif
+
                 if (m_Configurator.isBatchRun && m_Configurator.sendResultsOverNetwork)
                     Application.Quit();
             }
@@ -356,7 +373,7 @@ namespace UnityTest
             currentTest = null;
             if (!testResult.IsSuccess
                 && testResult.Executed
-                && !testResult.IsIgnored) k_ResultRenderer.AddResults(Application.loadedLevelName, testResult);
+                && !testResult.IsIgnored) k_ResultRenderer.AddResults(SceneManager.GetActiveScene().name, testResult);
         }
 
         #region Test Runner Helpers

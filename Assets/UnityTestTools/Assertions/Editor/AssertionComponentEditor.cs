@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using UnityEditor;
 using UnityEngine;
+using UnityEditor.SceneManagement;
 
 namespace UnityTest
 {
@@ -22,6 +23,8 @@ namespace UnityTest
         private readonly GUIContent m_GUICheckAfterFramesGuiContent = new GUIContent("Check after (frames)", "After how many frames the assertion should be checked");
         private readonly GUIContent m_GUIRepeatCheckFrameGuiContent = new GUIContent("Repeat check", "Should the check be repeated.");
         #endregion
+
+        private static List<Type> allComparersList = null;
 
         public AssertionComponentEditor()
         {
@@ -79,6 +82,8 @@ namespace UnityTest
                     DrawCompareToType(script.Action as ComparerBase);
                 }
             }
+            if(GUI.changed)
+                EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
         }
 
         private void DrawOptionsForAfterPeriodOfTime(AssertionComponent script)
@@ -176,8 +181,17 @@ namespace UnityTest
 
         private bool DrawComparerSelection(AssertionComponent script)
         {
-            var types = typeof(ActionBase).Assembly.GetTypes();
-            var allComparers = types.Where(type => type.IsSubclassOf(typeof(ActionBase)) && !type.IsAbstract).ToArray();
+            if(allComparersList == null)
+            {
+                allComparersList = new List<Type>();
+                var allAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+                foreach (var assembly in allAssemblies)
+                {
+                    var types = assembly.GetTypes();
+                    allComparersList.AddRange(types.Where(type => type.IsSubclassOf(typeof(ActionBase)) && !type.IsAbstract));
+                }
+            }
+            var allComparers = allComparersList.ToArray();
 
             if (script.Action == null)
                 script.Action = (ActionBase)CreateInstance(allComparers.First());

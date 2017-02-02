@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace UnityTest
 {
@@ -18,9 +19,9 @@ namespace UnityTest
         private ResultDTO(MessageType messageType)
         {
             this.messageType = messageType;
-            levelCount = Application.levelCount;
-            loadedLevel = Application.loadedLevel;
-            loadedLevelName = Application.loadedLevelName;
+            levelCount = UnityEngine.SceneManagement.SceneManager.sceneCount;
+            loadedLevel = UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex;
+            loadedLevelName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
         }
 
         public enum MessageType : byte
@@ -30,7 +31,8 @@ namespace UnityTest
             RunFinished,
             TestStarted,
             TestFinished,
-            RunInterrupted
+            RunInterrupted,
+            AllScenesFinished
         }
 
         public static ResultDTO CreatePing()
@@ -64,6 +66,12 @@ namespace UnityTest
             var dto = new ResultDTO(MessageType.TestFinished);
             dto.testName = test.FullName;
             dto.testResult = GetSerializableTestResult(test);
+            return dto;
+        }
+
+        public static ResultDTO CreateAllScenesFinished()
+        {
+            var dto = new ResultDTO(MessageType.AllScenesFinished);
             return dto;
         }
 
